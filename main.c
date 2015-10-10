@@ -17,7 +17,7 @@ typedef struct __node__{
 } node ;
 
 typedef struct __kid__{
-  pid_t pid;
+  pid_t *pid;
   struct __kid__ * next;
 } kid;
 
@@ -61,14 +61,6 @@ void free_tokens(char **tokens) {
     free(tokens); // then free the array
 }
 
-void num_tokens(char **tokens, int *n) {
-    int i = 0;
-    while (tokens[i] != NULL) {
-        i++;
-    }
-    *n = i;
-}
-
 void print_tokens(char *tokens[]) {
     int i = 0;
     while (tokens[i] != NULL) {
@@ -94,11 +86,13 @@ void p_run_command(char * arg, char ** parameters, kid * kid_head){
   while (kid_head != NULL){
     kid_head = kid_head->next;
   }
-  (kid_head->pid) = fork();
-  if ((kid_head->pid) == -1){
+  kid_head = malloc(sizeof(kid));
+  kid_head->pid = malloc(sizeof(pid_t));
+  *(kid_head->pid) = fork();
+  if (*(kid_head->pid) == -1){
     printf("Fork error :(\n");
   }
-  else if ((kid_head->pid) == 0){
+  else if (*(kid_head->pid) == 0){
     if (execv(arg, parameters) < 0){
       printf("Made a bad call\n");
     }
@@ -109,7 +103,7 @@ void kill_pids(kid * head){
   while(head != NULL){
     kid *temp = head;
     head = head->next;
-    waitpid(-1, &(temp->pid), 0);
+    waitpid(-1, temp->pid, 0);
     }
 }
 
@@ -225,7 +219,7 @@ void path_finder(char ** command, int sequential, node * dir_head, kid * kid_hea
 void resume_pid(kid * head, pid_t pid){
   int found = 0;
   while(head != NULL){
-    if (head->pid == pid){
+    if (*(head->pid) == pid){
       kill(pid, SIGSTOP);
       found = 1;
       break;
@@ -240,7 +234,7 @@ void resume_pid(kid * head, pid_t pid){
 void pause_pid(kid * head, pid_t pid){
   int found = 0;
   while(head != NULL){
-    if (head->pid == pid){
+    if (*(head->pid) == pid){
       kill(pid, SIGCONT);
       found = 1;
       break;
@@ -256,7 +250,7 @@ void jobs(kid * head){
   printf("List of jobs below:\n");
   int counter = 0;
   while(head != NULL){
-    printf("%ld", (long)head->pid);
+    printf("%ld", (long)*(head->pid));
     head = head->next;
     counter++;
     }
@@ -295,7 +289,6 @@ int main(int argc, char **argv) {
         char semi[] = {";"};
         char **commands = tokenify(buffer, semi);
         int *num_commands = malloc(sizeof(int));
-        num_tokens(commands, num_commands); //could just get this from an extra param on tokenify
         int i = 0;
         char whitespace[] = {" \t\n"};
         while (commands[i] != NULL){
@@ -323,7 +316,6 @@ int main(int argc, char **argv) {
             }
             else{
                  pause_pid(kid_head, sprintf(curr_command[1] + strlen(curr_command[1]), "%ld", (long) curr_command[1]));
-                 ;
             }
           }
           else if(strncmp(curr_command[0], "resume", strlen(curr_command[0]))==0){
@@ -353,7 +345,7 @@ int main(int argc, char **argv) {
           free_tokens(curr_command);
           i++;
         }
-        if (!sequential){ //delay kill_pids, to
+        if (!sequential){
           kill_pids(kid_head);
         }
         free(num_commands);
